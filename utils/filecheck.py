@@ -32,7 +32,7 @@ def getStatus():
             statusByDir['id'] = f'{recKey}'
             statusByDir['recKey'] = f'{recKey}'
             statusByDir['receivedTime'] = datetime.fromtimestamp(upload_time).strftime('%m-%d %H:%M:%S')
-            types = ['ori', 'reduc']
+            types = ['ori', 'reduc', 'reduc2', 'sep']
             for type in types:
                 filelist[type] = [f for f in files if (f.split('_')[0].endswith(type) and f.endswith('wav'))]
                 statusByDir[f'{type}Status'] = 'Complete' if len(filelist[type]) > 0 else 'Ready'

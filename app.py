@@ -2,13 +2,15 @@ from fastapi import FastAPI, File, Body, UploadFile, HTTPException, BackgroundTa
 from fastapi.responses import HTMLResponse, FileResponse
 import uvicorn
 
-import shutil, os
+import zipfile
+import shutil, os, sys
 from pathlib import Path
 from utils.network import cors
-from utils.ini import config
+from utils.ini import config, unet_model, sep_model, enhance_model
 from utils.sys import date
-from utils.soundprocessor import noise_reduce
+from utils.soundprocessor import noise_reduce, voice_seperation, voice_enhance, noise_reduce2
 from utils.filecheck import getStatus
+
 
 app = FastAPI()
 cors(app)
@@ -42,10 +44,12 @@ async def upload_and_analysis_wavfile(file: UploadFile = File(...), background_t
     with open(soundfile, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
     Path(f'{target_dir}/uploaded.txt').touch() # make file for status checking
-    background_tasks.add_task(noise_reduce, dir = target_dir, fs = 8000,
-            MODEL_PATH = config['ml']['model'], InSample_PATH=soundfile, OutSample_PATH=targetfile)
+    background_tasks.add_task(noise_reduce, target_dir = target_dir, fs = 8000,
+            model = unet_model, InSample_PATH=soundfile, OutSample_PATH=targetfile)
+    background_tasks.add_task(voice_seperation, target_dir=target_dir, filename=filename, model=sep_model)
+    background_tasks.add_task(voice_enhance, target_dir=target_dir, filename=filename, model=enhance_model)
+    background_tasks.add_task(noise_reduce2, target_dir=target_dir, filename=filename, model=enhance_model)
     return {"res": "ok"}
-
 
 
 @app.get('/download-single/{wav_file}')
@@ -60,6 +64,25 @@ async def download_single_wavfile_for_specific_type(wav_file):
         raise HTTPException(status_code=404, detail="No files found")
     return FileResponse(path=target_file, filename=wav_file, media_type='audio/wav')
 
+
+@app.get('/download/{wav_tag}')
+async def download_wavfiles_for_specific_type(wav_tag):
+    '''
+    wav_tag : recKey-sep 
+    '''
+    [recKey, wav_type] = wav_tag.split('-')
+    target_dir = f'{BASE_DIR}/{recKey[:-2]}/{recKey}'
+    sfiles = os.listdir(target_dir)
+    wavfiles = [ file for file in sfiles if ((file.split('_')[0].endswith(wav_type)) and (file.endswith('wav'))) ]
+    if len(wavfiles) < 1:
+        raise HTTPException(status_code=404, detail="No files found")
+    # lastfiles = sorted(wavfiles)[-4:] # 가장 최신 4개만 뽑음
+    lastfiles = wavfiles
+    with zipfile.ZipFile(f"tmp/{wav_tag}.zip", 'w') as my_zip: #zip으로 묶음
+        for i in lastfiles:
+            my_zip.write(f'{target_dir}/{i}', i)
+        my_zip.close()
+    return FileResponse(path=f"tmp/{wav_tag}.zip", filename=f"wavfiles_{recKey}.zip", media_type='application/zip')
 
 @app.post('/data/memo')
 async def update_memo(recKey: str = Body(...), content: str = Body(...)):
