@@ -28,10 +28,11 @@ def voice_seperation(target_dir : str, filename: str, model, num_sep=2):
     for i in range(num_sep):
         outFile = os.path.join(target_dir, f'{filename.split("-")[0]}-sep_ch{i}.wav')
         torchaudio.save(outFile, est_sources[:, :, i].detach().cpu(), 8000)
-
+    
     ftime = time()
     with open(f'{target_dir}/sep_time.txt', 'w') as f:
         f.write(f'{ftime-stime}')
+    os.remove(filename) # 왜 현재위치에 ori 파일이 생성되는지 모르겠지만 일단 생성된 것 삭제
 
 def voice_enhance(target_dir : str, filename: str, model, num_sep=2):
     inFile = os.path.join(target_dir, filename)
