@@ -6,6 +6,7 @@ import torchaudio
 import soundfile as sf
 from inference import noise_reduct
 import noisereduce as nr
+from typing import List
 
 
 def noise_reduce(target_dir: str, fs: int, model, InSample_PATH: str, OutSample_PATH: str):
@@ -56,4 +57,21 @@ def noise_reduce2(target_dir : str, filename: str, model):
     ftime = time()
     with open(f'{target_dir}/reduc2_time.txt', 'w') as f:
         f.write(f'{ftime-stime}')
+        
+def voice_recognition(filepath: str, ref_voices: List, model, thres = 0.3):
+    now_voice = torchaudio.load(filepath)[0].to('cuda')
+    prediction = {"max_score": 0, "speaker": -1}
+    for i, ref_voice in enumerate(ref_voices):
+        score_tensor, _ = model.verify_batch(ref_voice, now_voice)
+        score = score_tensor.tolist()[0][0]
+        if score > thres and prediction["max_score"] < score:
+            prediction["max_score"] = score
+            prediction["speaker"] = i
+    if prediction["speaker"] != -1:
+        print(f"score, prediction : {prediction['max_score']}, {prediction['speaker']}")
+    else:
+        print("No speaker detected")
+    return prediction['speaker']
 
+def stt(filepath: str, datatype, model, thres = 0.3):
+    return 'ok'

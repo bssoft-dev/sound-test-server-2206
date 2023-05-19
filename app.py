@@ -6,16 +6,17 @@ import zipfile
 import shutil, os, sys
 from pathlib import Path
 from utils.network import cors
-from utils.ini import config, unet_model, sep_model, enhance_model
+from utils.log_conf import app_log_conf
+from utils.ini import (config, models, ref_voice_shcho, ref_voice_bsjang)
 from utils.sys import date
-from utils.soundprocessor import noise_reduce, voice_seperation, voice_enhance, noise_reduce2
+from utils.soundprocessor import noise_reduce, voice_seperation, voice_enhance, noise_reduce2, voice_recognition
 from utils.filecheck import getStatus
 
 
 app = FastAPI()
 cors(app)
 
-BASE_DIR=config['dirs']['sound_path']
+BASE_DIR=config['dirs']['upload_path']
 
 
 @app.on_event("startup")
@@ -45,10 +46,10 @@ async def upload_and_analysis_wavfile(file: UploadFile = File(...), background_t
             shutil.copyfileobj(file.file, buffer)
     Path(f'{target_dir}/uploaded.txt').touch() # make file for status checking
     background_tasks.add_task(noise_reduce, target_dir = target_dir, fs = 8000,
-            model = unet_model, InSample_PATH=soundfile, OutSample_PATH=targetfile)
-    background_tasks.add_task(voice_seperation, target_dir=target_dir, filename=filename, model=sep_model)
-    background_tasks.add_task(voice_enhance, target_dir=target_dir, filename=filename, model=enhance_model)
-    background_tasks.add_task(noise_reduce2, target_dir=target_dir, filename=filename, model=enhance_model)
+            model = models['unet_model'], InSample_PATH=soundfile, OutSample_PATH=targetfile)
+    background_tasks.add_task(voice_seperation, target_dir=target_dir, filename=filename, model=models['sep_model'])
+    background_tasks.add_task(voice_enhance, target_dir=target_dir, filename=filename, model=models['enhance_model'])
+    background_tasks.add_task(noise_reduce2, target_dir=target_dir, filename=filename, model=models['enhance_model'])
     return {"res": "ok"}
 
 
@@ -64,6 +65,31 @@ async def download_single_wavfile_for_specific_type(wav_file):
         raise HTTPException(status_code=404, detail="No files found")
     return FileResponse(path=target_file, filename=wav_file, media_type='audio/wav')
 
+@app.post("/analysis/whoyouare")
+async def judge_who_you_are(file: UploadFile = File(...)):
+    deviceid = file.filename.split('-')[0]
+    if "wav" not in file.filename[-3:]:
+        raise HTTPException(status_code=422, detail="File extension is not allowed")
+    folder = os.path.join(BASE_DIR, deviceid)
+    os.makedirs(folder, exist_ok=True)
+    soundfile = os.path.join(folder,file.filename)
+    with open(soundfile, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    res = voice_recognition(soundfile, ref_voices=[ref_voice_shcho, ref_voice_bsjang], model=models['voice_rec_model'])
+    return {"file": file.filename, "result": res}
+
+@app.post("/analysis/stt/{datatype}")
+async def stt(datatype, file: UploadFile = File(...)):
+    deviceid = file.filename.split('-')[0]
+    if "wav" not in file.filename[-3:]:
+        raise HTTPException(status_code=422, detail="File extension is not allowed")
+    folder = os.path.join(BASE_DIR, deviceid)
+    os.makedirs(folder, exist_ok=True)
+    soundfile = os.path.join(folder,file.filename)
+    with open(soundfile, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    res = stt(soundfile, datatype, model=models['voice_rec_model'])
+    return {"file": file.filename, "result": res}
 
 @app.get('/download/{wav_tag}')
 async def download_wavfiles_for_specific_type(wav_tag):
@@ -112,4 +138,4 @@ async def main():
 
 
 if __name__ == '__main__':
-    uvicorn.run("app:app", host=config['host']['url'], port=int(config['host']['port']), reload=True, log_level='info')
+    uvicorn.run("app:app", host=config['host']['url'], port=int(config['host']['port']), reload=True, log_config=app_log_conf, log_level='info')
