@@ -34,5 +34,7 @@ models['voice_rec_model'] = SpeakerRecognition.from_hparams(source="speechbrain/
 ref_voice_shcho = torchaudio.load(f"{config['dirs']['sound_path']}/cho.wav")[0].to(device)
 ref_voice_bsjang = torchaudio.load(f"{config['dirs']['sound_path']}/jang.wav")[0].to(device)
 # stt_model = WhisperForConditionalGeneration.from_pretrained(stt_model_path)
-stt_processor = WhisperProcessor.from_pretrained(stt_model_path)
-forced_decoder_ids = stt_processor.get_decoder_prompt_ids(language="korean", task="transcribe")
+stt_processors = {}
+stt_processors['processor'] = WhisperProcessor.from_pretrained(stt_model_path)
+stt_processors['forced_decoder_ids'] = stt_processors['processor'].get_decoder_prompt_ids(language="korean", task="transcribe")
+models['stt_model'] = WhisperForConditionalGeneration.from_pretrained("openai/whisper-medium").to(device)

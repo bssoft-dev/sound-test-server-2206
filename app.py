@@ -7,13 +7,18 @@ import shutil, os, sys
 from pathlib import Path
 from utils.network import cors
 from utils.log_conf import app_log_conf
-from utils.ini import (config, models, ref_voice_shcho, ref_voice_bsjang)
+from utils.ini import (config, models, stt_processors, ref_voice_shcho, ref_voice_bsjang)
 from utils.sys import date
-from utils.soundprocessor import noise_reduce, voice_seperation, voice_enhance, noise_reduce2, voice_recognition
+from utils.soundprocessor import noise_reduce, stt, voice_seperation, voice_enhance, noise_reduce2, voice_recognition
 from utils.filecheck import getStatus
 
 
-app = FastAPI()
+app = FastAPI(
+    title="BSsoft 1ch Sound Processing Test",
+    description="BS소프트의 1채널 사운드처리 테스트 API 페이지입니다.",
+    version="0.1.0"
+)
+
 cors(app)
 
 BASE_DIR=config['dirs']['upload_path']
@@ -79,7 +84,7 @@ async def judge_who_you_are(file: UploadFile = File(...)):
     return {"file": file.filename, "result": res}
 
 @app.post("/analysis/stt/{datatype}")
-async def stt(datatype, file: UploadFile = File(...)):
+async def stt_anal(datatype, file: UploadFile = File(...)):
     deviceid = file.filename.split('-')[0]
     if "wav" not in file.filename[-3:]:
         raise HTTPException(status_code=422, detail="File extension is not allowed")
@@ -88,8 +93,26 @@ async def stt(datatype, file: UploadFile = File(...)):
     soundfile = os.path.join(folder,file.filename)
     with open(soundfile, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    res = stt(soundfile, datatype, model=models['voice_rec_model'])
+    res = stt(soundfile, datatype, stt_processors, models['stt_model'])
     return {"file": file.filename, "result": res}
+
+@app.post("/analysis/id-and-stt")
+async def id_and_stt_anal(datatype = 'wavfile', file: UploadFile = File(...)):
+    deviceid = file.filename.split('-')[0]
+    if "wav" not in file.filename[-3:]:
+        raise HTTPException(status_code=422, detail="File extension is not allowed")
+    folder = os.path.join(BASE_DIR, deviceid)
+    os.makedirs(folder, exist_ok=True)
+    soundfile = os.path.join(folder,file.filename)
+    with open(soundfile, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    speaker = voice_recognition(soundfile, ref_voices=[ref_voice_shcho, ref_voice_bsjang], model=models['voice_rec_model'])
+    if speaker == 0:
+        speaker = "성훈"
+    elif speaker == -1:
+        speaker = "??"
+    res = stt(soundfile, datatype, stt_processors, models['stt_model'])
+    return {"file": file.filename, "result": res, "speaker": speaker}
 
 @app.get('/download/{wav_tag}')
 async def download_wavfiles_for_specific_type(wav_tag):
