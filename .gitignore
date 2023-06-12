@@ -1,9 +1,11 @@
 #### my settings ####
 log.*
+blob_files/
 logs/
 uploaded_files/
 sounds/
 tmp/
+temp_files/
 
 ####### .gitignore for python #########
 # Byte-compiled / optimized / DLL files
