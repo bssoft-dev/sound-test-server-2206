@@ -25,12 +25,12 @@ models['unet_model'].load_state_dict(dict_model['model'])
 print(f"Unet model has been loaded with {config['ml']['device']}!")
 
 
-# from speechbrain.pretrained import SepformerSeparation as separator
-# from speechbrain.pretrained import SpectralMaskEnhancement as enhancer
-# from speechbrain.pretrained import SpeakerRecognition
-# models['sep_model'] = separator.from_hparams(source="speechbrain/sepformer-whamr", savedir='pretrained_models/separator', run_opts={"device":device})
-# models['enhance_model'] = enhancer.from_hparams(source="speechbrain/mtl-mimic-voicebank", savedir='pretrained_models/enhancer', run_opts={"device":device})
-# models['voice_rec_model'] = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir='pretrained_models/voice_recognition', run_opts={"device":device})
+from speechbrain.pretrained import SepformerSeparation as separator
+from speechbrain.pretrained import SpectralMaskEnhancement as enhancer
+from speechbrain.pretrained import SpeakerRecognition
+models['sep_model'] = separator.from_hparams(source="speechbrain/sepformer-whamr", savedir='pretrained_models/separator', run_opts={"device":device})
+models['enhance_model'] = enhancer.from_hparams(source="speechbrain/mtl-mimic-voicebank", savedir='pretrained_models/enhancer', run_opts={"device":device})
+models['voice_rec_model'] = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir='pretrained_models/voice_recognition', run_opts={"device":device})
 ref_voice_shcho = torchaudio.load(f"{config['dirs']['sound_path']}/cho.wav")[0].to(device)
 ref_voice_bsjang = torchaudio.load(f"{config['dirs']['sound_path']}/jang.wav")[0].to(device)
 # stt_model = WhisperForConditionalGeneration.from_pretrained(stt_model_path)

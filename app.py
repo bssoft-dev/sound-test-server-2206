@@ -11,7 +11,8 @@ from utils.log_conf import app_log_conf
 from utils.ini import (config, models, stt_processors, ref_voice_shcho, ref_voice_bsjang)
 from utils.webSocket import notifier
 from utils.soundprocessor import stt, voice_recognition
-from routers import onestopAnalysis, userManage, webSocketClient
+from nlp.vocabraries import filter_forbidden
+from routers import onestopAnalysis, webSocketClient
 
 app = FastAPI(
     title="BSsoft 1ch Sound Processing Test",
@@ -30,7 +31,7 @@ app.include_router(
     fastapi_users.get_reset_password_router(), prefix="/auth", tags=["Auth"]
 )
 # 작성한 API include
-app.include_router(userManage.router)
+# app.include_router(userManage.router)
 app.include_router(webSocketClient.router)
 app.include_router(onestopAnalysis.router)
 
@@ -77,8 +78,7 @@ async def stt_anal(datatype:str, file: UploadFile = File(...)):
         with open(soundfile, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
     res = stt(soundfile, datatype, stt_processors, models['stt_model'])
-    if res == ' 안녕':
-        res = ''
+    res = filter_forbidden(res)
     return {"file": file.filename, "result": res}
 
 @app.post("/analysis/id-and-stt")
@@ -111,9 +111,10 @@ async def websocket_endpoint2(websocket: WebSocket):
             with open(soundfile, "wb") as buffer:
                 buffer.write(data)
             res = stt(soundfile, 'wav', stt_processors, models['stt_model'])
+            res = filter_forbidden(res)
             response_data = {"data": res}  # 응답할 데이터를 딕셔너리 형태로 구성
-            # await websocket.send_json(response_data)  # JSON 응답 전송
-            await notifier.push(response_data)
+            await websocket.send_json(response_data)  # JSON 응답 전송
+            # await notifier.push(response_data)
             if count < 20:
                 count += 1
             else:
