@@ -3,6 +3,7 @@ from fastapi.responses import FileResponse
 from utils.filecheck import getStatus
 from utils.sys import date
 import os, shutil, zipfile
+from pydub import AudioSegment
 from pathlib import Path
 from utils.ini import config, models
 
@@ -39,6 +40,32 @@ async def upload_and_analysis_wavfile(file: UploadFile = File(...), background_t
     background_tasks.add_task(voice_enhance, target_dir=target_dir, filename=filename, model=models['enhance_model'])
     background_tasks.add_task(noise_reduce2, target_dir=target_dir, filename=filename, model=models['enhance_model'])
     return {"res": "ok"}
+
+@router.post("/analysis/uploadBlob")
+async def upload_and_analysis_blob(file: UploadFile = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
+
+    today = date(format='%m%d')
+    recKey = f"{today}{date(format='%H%M%S')}"
+    target_dir = f'{BASE_DIR}/{recKey[:-2]}/{recKey}'
+    os.makedirs(target_dir, exist_ok=True)
+    blobfile = f'{recKey}-blob_ch0.wav'
+    filename = f'{recKey}-ori_ch0.wav'
+    targetfilename = f'{recKey}-reduc_ch0.wav'
+    soundfile = os.path.join(target_dir,filename)
+    blobpath = os.path.join(target_dir,blobfile)
+    targetfile = os.path.join(target_dir,targetfilename)
+    with open(blobpath, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    wav_file = AudioSegment.from_file(file = blobpath)
+    wav_file.export(out_f = soundfile, format = "wav")
+    Path(f'{target_dir}/uploaded.txt').touch() # make file for status checking
+    background_tasks.add_task(noise_reduce, target_dir = target_dir, fs = 8000,
+            model = models['unet_model'], InSample_PATH=soundfile, OutSample_PATH=targetfile)
+    background_tasks.add_task(voice_seperation, target_dir=target_dir, filename=filename, model=models['sep_model'])
+    background_tasks.add_task(voice_enhance, target_dir=target_dir, filename=filename, model=models['enhance_model'])
+    background_tasks.add_task(noise_reduce2, target_dir=target_dir, filename=filename, model=models['enhance_model'])
+    return {"res": "ok"}
+
 
 @router.get('/download-single/{wav_file}')
 async def download_single_wavfile_for_specific_type(wav_file):
