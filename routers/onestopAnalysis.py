@@ -21,8 +21,7 @@ async def status():
 @router.post("/analysis/uploadFile")
 async def upload_and_analysis_wavfile(file: UploadFile = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
 
-    today = date(format='%m%d')
-    recKey = f"{today}{date(format='%H%M%S')}"
+    recKey = date(format='%y%m%d%H%M%S')
     target_dir = f'{BASE_DIR}/{recKey[:-2]}/{recKey}'
     os.makedirs(target_dir, exist_ok=True)
     if not(file.filename.endswith('.wav')):
@@ -34,18 +33,17 @@ async def upload_and_analysis_wavfile(file: UploadFile = File(...), background_t
     with open(soundfile, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
     Path(f'{target_dir}/uploaded.txt').touch() # make file for status checking
-    background_tasks.add_task(noise_reduce, target_dir = target_dir, fs = 8000,
-            model = models['unet_model'], InSample_PATH=soundfile, OutSample_PATH=targetfile)
+    # background_tasks.add_task(noise_reduce, target_dir = target_dir, fs = 8000,
+            # model = models['unet_model'], InSample_PATH=soundfile, OutSample_PATH=targetfile)
     background_tasks.add_task(voice_seperation, target_dir=target_dir, filename=filename, model=models['sep_model'])
-    background_tasks.add_task(voice_enhance, target_dir=target_dir, filename=filename, model=models['enhance_model'])
-    background_tasks.add_task(noise_reduce2, target_dir=target_dir, filename=filename, model=models['enhance_model'])
+    # background_tasks.add_task(voice_enhance, target_dir=target_dir, filename=filename, model=models['enhance_model'])
+    # background_tasks.add_task(noise_reduce2, target_dir=target_dir, filename=filename, model=models['enhance_model'])
     return {"res": "ok"}
 
 @router.post("/analysis/uploadBlob")
 async def upload_and_analysis_blob(file: UploadFile = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
 
-    today = date(format='%m%d')
-    recKey = f"{today}{date(format='%H%M%S')}"
+    recKey = date(format='%y%m%d%H%M%S')
     target_dir = f'{BASE_DIR}/{recKey[:-2]}/{recKey}'
     os.makedirs(target_dir, exist_ok=True)
     blobfile = f'{recKey}-blob_ch0.wav'

@@ -5,7 +5,7 @@ from utils.ini import config
 import soundfile as sf
 
 BASE_DIR=config['dirs']['upload_path']
-skip_folder_list = ['SmartSpeaker', 'voiceRecog', 'recorder']
+skip_folder_list = ['SmartSpeaker', 'voiceRecog', 'recorder', 'stt']
 
 def get_duration(file):
     f = sf.SoundFile(file)

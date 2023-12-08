@@ -73,7 +73,7 @@ def voice_recognition(filepath: str, ref_voices: List, model, thres = 0.3):
         print("No speaker detected")
     return prediction['speaker']
 
-def stt(filepath: str, datatype: str, processors: dict, model, thres = 0.3, sr = 16000):
+def stt(filepath: str, processors: dict, model, thres = 0.3, sr = 16000):
     wav_data = librosa.load(filepath, sr=sr)[0]
     tmp = processors['processor'](wav_data, sampling_rate = sr, return_tensors='pt')
     input_values = tmp.input_features.to('cuda')
