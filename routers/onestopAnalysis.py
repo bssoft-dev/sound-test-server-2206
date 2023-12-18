@@ -24,8 +24,8 @@ async def status():
 
 @router.post("/analysis/uploadFile")
 async def upload_and_analysis_wavfile(file: UploadFile = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
-    # soundData = SoundModel(duration=get_duration(file.file))
-    # SoundData().insert(soundData)
+    soundData = SoundModel(duration=get_duration(file.file))
+    SoundData().insert(soundData)
     recKey = date(format='%y%m%d%H%M%S')
     target_dir = f'{BASE_DIR}/{recKey[:-2]}/{recKey}'
     os.makedirs(target_dir, exist_ok=True)
