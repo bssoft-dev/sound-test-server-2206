@@ -1,5 +1,6 @@
 from fastapi import APIRouter, File, Body, UploadFile, HTTPException, BackgroundTasks
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from pydantic import ValidationError
 from database import SoundData, SoundModel
 from utils.filecheck import get_duration, getStatus
 from utils.sys import date
@@ -18,28 +19,13 @@ router = APIRouter(tags=['Onestop Analysis'])
 @router.get('/status')
 async def status():
     # status = getStatus()
-    status = SoundData().read()
+    status = SoundData().read_all()
     return status
 
 @router.post("/analysis/uploadFile")
 async def upload_and_analysis_wavfile(file: UploadFile = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
-    soundData = SoundModel(id = date(format='%y%m%d%H%M%S'),
-                           recKey=date(format='%y%m%d%H%M%S'),
-                           receivedTime=date(format='%m-%d %H:%M:%S'),
-                           oriStatus='Complete',
-                           oriUrlBase = [f"{date(format='%y%m%d%H%M%S')}-ori_ch0.wav"],
-                           reducStatus='Ready',
-                           reducUrlBase=[],
-                           reducprocTime='',
-                           reduc2Status='Ready',
-                           reduc2UrlBase=[],
-                           reduc2procTime='',
-                           sepStatus='Ready',
-                           sepUrlBase=[],
-                           sepprocTime='',
-                           duration=get_duration(file.file),
-                           memo='')
-    SoundData().insert(soundData)
+    # soundData = SoundModel(duration=get_duration(file.file))
+    # SoundData().insert(soundData)
     recKey = date(format='%y%m%d%H%M%S')
     target_dir = f'{BASE_DIR}/{recKey[:-2]}/{recKey}'
     os.makedirs(target_dir, exist_ok=True)
@@ -117,13 +103,8 @@ async def download_wavfiles_for_specific_type(wav_tag):
 
 @router.post('/data/memo')
 async def update_memo(recKey: str = Body(...), content: str = Body(...)):
-    memofile = f'{BASE_DIR}/{recKey[:-2]}/{recKey}/uploaded.txt'
     try:
-        mtime = os.path.getmtime(memofile)
-        f = open(memofile, 'w')
-        f.write(content)
-        f.close()
-        os.utime(memofile,(mtime, mtime)) # change modification time to origin value
+        SoundData().update(recKey= recKey, data= SoundModel(memo=content))
         return content
     except Exception as e:
-        raise HTTPException(500, detail=e)
+        return HTTPException(status_code=400, content=e.errors())
