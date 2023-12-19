@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+# from database import SoundData, SoundModel
 from utils.ini import config
 
 import soundfile as sf
@@ -50,6 +51,12 @@ def getStatus():
                 statusByDir['duration'] = get_duration(f'{nowDir}/{filelist["ori"][0]}')
                 statusByDir['memo'] = open(f'{nowDir}/uploaded.txt', 'r').read()
                 status.append(statusByDir)
+                # statusByDir를 사용하여 SoundModel 인스턴스 생성
+                # soundData = SoundModel(**statusByDir)
+
+                # # SoundModel 인스턴스를 DB에 저장
+                # soundDataInsert = SoundData(soundData)
+                # soundDataInsert.insert()
     status.sort(reverse=True, key=sort_fn)
     return status
 

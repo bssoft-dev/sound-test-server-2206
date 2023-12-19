@@ -20,3 +20,11 @@ if db_name == '':
 hyper_name = os.getenv('HYPER_NAME', '')
 if hyper_name == '':
     raise Exception('HYPER_NAME is not set')
+
+postgres_db_name = os.getenv('POSTGRES_DB', '')
+if postgres_db_name == '':
+    raise Exception('POSTGRES_DB is not set. Please use docker run with -e POSTGRES_DB=<postgres_db_name>')
+
+postgres_url = os.getenv('POSTGRES_URL', '')
+if postgres_url == '':
+    raise Exception('POSTGRES_URL is not set')

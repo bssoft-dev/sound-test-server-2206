@@ -1,48 +1,51 @@
+from datetime import datetime
 from fastapi import APIRouter, File, Body, UploadFile, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
-from utils.filecheck import getStatus
+from database import SoundData, SoundModel
 from utils.sys import date
 import os, shutil, zipfile
 from pydub import AudioSegment
 from pathlib import Path
 from utils.ini import config, models
+import soundfile as sf
 
 from utils.soundprocessor import noise_reduce, voice_seperation, voice_enhance, noise_reduce2
 
 BASE_DIR=config['dirs']['upload_path']
-
+httpPrefix = f'http://sound.bs-soft.co.kr/download-single/'
 router = APIRouter(tags=['Onestop Analysis'])
 
 @router.get('/status')
 async def status():
-    status = getStatus()
+    status = SoundData().read_all()
     return status
 
 @router.post("/analysis/uploadFile")
 async def upload_and_analysis_wavfile(file: UploadFile = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
-
     recKey = date(format='%y%m%d%H%M%S')
     target_dir = f'{BASE_DIR}/{recKey[:-2]}/{recKey}'
     os.makedirs(target_dir, exist_ok=True)
     if not(file.filename.endswith('.wav')):
         raise HTTPException(status_code=400, detail="Only WAV files are allowed")
     filename = f'{recKey}-ori_ch0.wav'
-    targetfilename = f'{recKey}-reduc_ch0.wav'
     soundfile = os.path.join(target_dir,filename)
-    targetfile = os.path.join(target_dir,targetfilename)
     with open(soundfile, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    Path(f'{target_dir}/uploaded.txt').touch() # make file for status checking
-    # background_tasks.add_task(noise_reduce, target_dir = target_dir, fs = 8000,
-            # model = models['unet_model'], InSample_PATH=soundfile, OutSample_PATH=targetfile)
+        shutil.copyfileobj(file.file, buffer)
+
+    f = sf.SoundFile(soundfile) 
+    soundData = SoundModel(
+        id= recKey,
+        recKey= recKey,
+        receivedTime=datetime.strptime(recKey, '%y%m%d%H%M%S').strftime('%m-%d %H:%M:%S'),
+        oriUrlBase=[f"{httpPrefix}{filename}"],
+        duration=f'{int(f.frames/f.samplerate)}s')
+
+    SoundData().insert(soundData)
     background_tasks.add_task(voice_seperation, target_dir=target_dir, filename=filename, model=models['sep_model'])
-    # background_tasks.add_task(voice_enhance, target_dir=target_dir, filename=filename, model=models['enhance_model'])
-    # background_tasks.add_task(noise_reduce2, target_dir=target_dir, filename=filename, model=models['enhance_model'])
-    return {"res": "ok"}
+    return {"res": f"{target_dir}/{filename}"}
 
 @router.post("/analysis/uploadBlob")
 async def upload_and_analysis_blob(file: UploadFile = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
-
     recKey = date(format='%y%m%d%H%M%S')
     target_dir = f'{BASE_DIR}/{recKey[:-2]}/{recKey}'
     os.makedirs(target_dir, exist_ok=True)
@@ -56,13 +59,22 @@ async def upload_and_analysis_blob(file: UploadFile = File(...), background_task
             shutil.copyfileobj(file.file, buffer)
     wav_file = AudioSegment.from_file(file = blobpath)
     wav_file.export(out_f = soundfile, format = "wav")
-    Path(f'{target_dir}/uploaded.txt').touch() # make file for status checking
+    f = sf.SoundFile(soundfile)
+    soundData = SoundModel(
+        id= recKey,
+        recKey= recKey,
+        receivedTime=datetime.strptime(recKey, '%y%m%d%H%M%S').strftime('%m-%d %H:%M:%S'),
+        oriUrlBase=[f"{httpPrefix}{filename}",
+                    f"{httpPrefix}{blobfile}"],
+        duration=f'{int(f.frames/f.samplerate)}s')
+    SoundData().insert(soundData)
+    # Path(f'{target_dir}/uploaded.txt').touch() # make file for status checking
     background_tasks.add_task(noise_reduce, target_dir = target_dir, fs = 8000,
             model = models['unet_model'], InSample_PATH=soundfile, OutSample_PATH=targetfile)
     background_tasks.add_task(voice_seperation, target_dir=target_dir, filename=filename, model=models['sep_model'])
     background_tasks.add_task(voice_enhance, target_dir=target_dir, filename=filename, model=models['enhance_model'])
     background_tasks.add_task(noise_reduce2, target_dir=target_dir, filename=filename, model=models['enhance_model'])
-    return {"res": "ok"}
+    return {"res": f"{targetfile}[]{target_dir}"}
 
 
 @router.get('/download-single/{wav_file}')
@@ -98,13 +110,11 @@ async def download_wavfiles_for_specific_type(wav_tag):
 
 @router.post('/data/memo')
 async def update_memo(recKey: str = Body(...), content: str = Body(...)):
-    memofile = f'{BASE_DIR}/{recKey[:-2]}/{recKey}/uploaded.txt'
     try:
-        mtime = os.path.getmtime(memofile)
-        f = open(memofile, 'w')
-        f.write(content)
-        f.close()
-        os.utime(memofile,(mtime, mtime)) # change modification time to origin value
+        SoundData().update(recKey= recKey, 
+                           data= SoundModel(
+                               id=recKey,
+                               memo=content))
         return content
     except Exception as e:
-        raise HTTPException(500, detail=e)
+        return HTTPException(status_code=400, content=e.errors())

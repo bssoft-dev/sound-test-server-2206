@@ -1,0 +1,5 @@
+{
+    "python.analysis.extraPaths": [
+        "./SpeechEN_UNET_wave_inference_to_BS_Kspon_noisex"
+    ]
+}
