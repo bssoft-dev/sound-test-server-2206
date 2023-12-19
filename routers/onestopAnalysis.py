@@ -12,7 +12,7 @@ import soundfile as sf
 from utils.soundprocessor import noise_reduce, voice_seperation, voice_enhance, noise_reduce2
 
 BASE_DIR=config['dirs']['upload_path']
-
+httpPrefix = f'http://sound.bs-soft.co.kr/download-single/'
 router = APIRouter(tags=['Onestop Analysis'])
 
 @router.get('/status')
@@ -37,7 +37,7 @@ async def upload_and_analysis_wavfile(file: UploadFile = File(...), background_t
         id= recKey,
         recKey= recKey,
         receivedTime=datetime.strptime(recKey, '%y%m%d%H%M%S').strftime('%m-%d %H:%M:%S'),
-        oriUrlBase=[f"http://sound.bs-soft.co.kr/download-single/{recKey}-ori_ch0.wav"],
+        oriUrlBase=[f"{httpPrefix}{filename}"],
         duration=f'{int(f.frames/f.samplerate)}s')
 
     SoundData().insert(soundData)
@@ -46,7 +46,6 @@ async def upload_and_analysis_wavfile(file: UploadFile = File(...), background_t
 
 @router.post("/analysis/uploadBlob")
 async def upload_and_analysis_blob(file: UploadFile = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
-
     recKey = date(format='%y%m%d%H%M%S')
     target_dir = f'{BASE_DIR}/{recKey[:-2]}/{recKey}'
     os.makedirs(target_dir, exist_ok=True)
@@ -60,13 +59,22 @@ async def upload_and_analysis_blob(file: UploadFile = File(...), background_task
             shutil.copyfileobj(file.file, buffer)
     wav_file = AudioSegment.from_file(file = blobpath)
     wav_file.export(out_f = soundfile, format = "wav")
-    Path(f'{target_dir}/uploaded.txt').touch() # make file for status checking
+    f = sf.SoundFile(soundfile)
+    soundData = SoundModel(
+        id= recKey,
+        recKey= recKey,
+        receivedTime=datetime.strptime(recKey, '%y%m%d%H%M%S').strftime('%m-%d %H:%M:%S'),
+        oriUrlBase=[f"{httpPrefix}{filename}",
+                    f"{httpPrefix}{blobfile}"],
+        duration=f'{int(f.frames/f.samplerate)}s')
+    SoundData().insert(soundData)
+    # Path(f'{target_dir}/uploaded.txt').touch() # make file for status checking
     background_tasks.add_task(noise_reduce, target_dir = target_dir, fs = 8000,
             model = models['unet_model'], InSample_PATH=soundfile, OutSample_PATH=targetfile)
     background_tasks.add_task(voice_seperation, target_dir=target_dir, filename=filename, model=models['sep_model'])
     background_tasks.add_task(voice_enhance, target_dir=target_dir, filename=filename, model=models['enhance_model'])
     background_tasks.add_task(noise_reduce2, target_dir=target_dir, filename=filename, model=models['enhance_model'])
-    return {"res": "ok"}
+    return {"res": f"{targetfile}[]{target_dir}"}
 
 
 @router.get('/download-single/{wav_file}')

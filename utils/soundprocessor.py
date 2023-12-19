@@ -18,8 +18,12 @@ def noise_reduce(target_dir: str, fs: int, model, InSample_PATH: str, OutSample_
         noise_reduct(fs, model, InSample_PATH, OutSample_PATH, 'cpu')
     
     ftime = time()
-    with open(f'{target_dir}/reduc_time.txt', 'w') as f:
-        f.write(f'{ftime-stime}')
+    SoundData().update(recKey=f'{target_dir.split("/")[-1].split("-")[0]}',
+                       data=SoundModel(
+                           id= f'{target_dir.split("/")[-1].split("-")[0]}',
+                           reducStatus='Complete',
+                           reducprocTime=f'{float(ftime-stime):0.3f}s',
+                           reducUrlBase=[f'{httpPrefix}'f'{target_dir.split("/")[-1].split("-")[0]}-reduc_ch0.wav']))
 
 def voice_seperation(target_dir : str, filename: str, model, num_sep=2):
     inFile = os.path.join(target_dir, filename)
@@ -46,8 +50,9 @@ def voice_enhance(target_dir : str, filename: str, model, num_sep=2):
     outFile = os.path.join(target_dir, f'{filename.split("-")[0]}-enhance_ch0.wav')
     torchaudio.save(outFile, enhanced.detach().cpu(), 8000)
     ftime = time()
-    with open(f'{target_dir}/enhance_time.txt', 'w') as f:
-        f.write(f'{ftime-stime}')
+
+    # with open(f'{target_dir}/enhance_time.txt', 'w') as f:
+    #     f.write(f'{ftime-stime}')
 
 def noise_reduce2(target_dir : str, filename: str, model):
     inFile = os.path.join(target_dir, filename)
@@ -58,8 +63,14 @@ def noise_reduce2(target_dir : str, filename: str, model):
     reduc = nr.reduce_noise(y=noisy, sr=fs)
     sf.write(outFile, reduc, samplerate=fs, subtype='PCM_16')
     ftime = time()
-    with open(f'{target_dir}/reduc2_time.txt', 'w') as f:
-        f.write(f'{ftime-stime}')
+    SoundData().update(recKey=f'{filename.split("-")[0]}',
+                data=SoundModel(
+                    id= f'{filename.split("-")[0]}',
+                    reduc2Status='Complete',
+                    reduc2procTime=f'{float(ftime-stime):0.3f}s',
+                    reduc2UrlBase=[f'{httpPrefix}'f'{filename.split("-")[0]}-reduc2_ch0.wav']))
+    # with open(f'{target_dir}/reduc2_time.txt', 'w') as f:
+    #     f.write(f'{ftime-stime}')
         
 def voice_recognition(filepath: str, ref_voices: List, model, thres = 0.3):
     now_voice = torchaudio.load(filepath)[0].to('cuda')
