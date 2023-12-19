@@ -1,14 +1,13 @@
+from datetime import datetime
 from fastapi import APIRouter, File, Body, UploadFile, HTTPException, BackgroundTasks
-from fastapi.responses import FileResponse, JSONResponse
-from pydantic import ValidationError
+from fastapi.responses import FileResponse
 from database import SoundData, SoundModel
-from utils.filecheck import get_duration, getStatus
 from utils.sys import date
 import os, shutil, zipfile
 from pydub import AudioSegment
 from pathlib import Path
 from utils.ini import config, models
-import postgres
+import soundfile as sf
 
 from utils.soundprocessor import noise_reduce, voice_seperation, voice_enhance, noise_reduce2
 
@@ -18,32 +17,32 @@ router = APIRouter(tags=['Onestop Analysis'])
 
 @router.get('/status')
 async def status():
-    # status = getStatus()
     status = SoundData().read_all()
     return status
 
 @router.post("/analysis/uploadFile")
 async def upload_and_analysis_wavfile(file: UploadFile = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
-    soundData = SoundModel(duration=get_duration(file.file))
-    SoundData().insert(soundData)
     recKey = date(format='%y%m%d%H%M%S')
     target_dir = f'{BASE_DIR}/{recKey[:-2]}/{recKey}'
     os.makedirs(target_dir, exist_ok=True)
     if not(file.filename.endswith('.wav')):
         raise HTTPException(status_code=400, detail="Only WAV files are allowed")
     filename = f'{recKey}-ori_ch0.wav'
-    # targetfilename = f'{recKey}-reduc_ch0.wav'
     soundfile = os.path.join(target_dir,filename)
-    # targetfile = os.path.join(target_dir,targetfilename)
     with open(soundfile, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    # Path(f'{target_dir}/uploaded.txt').touch() # make file for status checking
-    # background_tasks.add_task(noise_reduce, target_dir = target_dir, fs = 8000,
-            # model = models['unet_model'], InSample_PATH=soundfile, OutSample_PATH=targetfile)
+        shutil.copyfileobj(file.file, buffer)
+
+    f = sf.SoundFile(soundfile) 
+    soundData = SoundModel(
+        id= recKey,
+        recKey= recKey,
+        receivedTime=datetime.strptime(recKey, '%y%m%d%H%M%S').strftime('%m-%d %H:%M:%S'),
+        oriUrlBase=[f"http://sound.bs-soft.co.kr/download-single/{recKey}-ori_ch0.wav"],
+        duration=f'{int(f.frames/f.samplerate)}s')
+
+    SoundData().insert(soundData)
     background_tasks.add_task(voice_seperation, target_dir=target_dir, filename=filename, model=models['sep_model'])
-    # background_tasks.add_task(voice_enhance, target_dir=target_dir, filename=filename, model=models['enhance_model'])
-    # background_tasks.add_task(noise_reduce2, target_dir=target_dir, filename=filename, model=models['enhance_model'])
-    return {"res": "ok"}
+    return {"res": f"{target_dir}/{filename}"}
 
 @router.post("/analysis/uploadBlob")
 async def upload_and_analysis_blob(file: UploadFile = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
@@ -104,7 +103,10 @@ async def download_wavfiles_for_specific_type(wav_tag):
 @router.post('/data/memo')
 async def update_memo(recKey: str = Body(...), content: str = Body(...)):
     try:
-        SoundData().update(recKey= recKey, data= SoundModel(memo=content))
+        SoundData().update(recKey= recKey, 
+                           data= SoundModel(
+                               id=recKey,
+                               memo=content))
         return content
     except Exception as e:
         return HTTPException(status_code=400, content=e.errors())

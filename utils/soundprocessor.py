@@ -29,11 +29,12 @@ def voice_seperation(target_dir : str, filename: str, model, num_sep=2):
         outFile = os.path.join(target_dir, f'{filename.split("-")[0]}-sep_ch{i}.wav')
         torchaudio.save(outFile, est_sources[:, :, i].detach().cpu(), 8000)
     ftime = time()
-    SoundData().update(recKey=f'{filename.split("-")[0]}',data=SoundModel(sepStatus='Complete',
-                                                                          sepprocTime=f'{float(ftime-stime):0.3f}s',
-                                                                          sepUrlBase=[f'{httpPrefix}'f'{filename.split("-")[0]}-sep_ch{i}.wav']))
-    # with open(f'{target_dir}/sep_time.txt', 'w') as f:
-        # f.write(f'{ftime-stime}')
+    SoundData().update(recKey=f'{filename.split("-")[0]}',
+                       data=SoundModel(
+                           id= f'{filename.split("-")[0]}',
+                           sepStatus='Complete',
+                           sepprocTime=f'{float(ftime-stime):0.3f}s',
+                           sepUrlBase=[f'{httpPrefix}'f'{filename.split("-")[0]}-sep_ch{i}.wav']))
     os.remove(filename) # 왜 현재위치에 ori 파일이 생성되는지 모르겠지만 일단 생성된 것 삭제
     #업데이트 필요set
 

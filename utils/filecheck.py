@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from database import SoundData, SoundModel
+# from database import SoundData, SoundModel
 from utils.ini import config
 
 import soundfile as sf

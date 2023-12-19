@@ -50,11 +50,11 @@ def get_url_base():
     return [f"{get_current_time()}-ori_ch0.wav"]
 
 class SoundModel(BaseModel):
-    id : str = get_current_time()
-    recKey : Optional[str] = get_current_time()
-    receivedTime : Optional[str] = get_received_time()
+    id : str
+    recKey : Optional[str]
+    receivedTime : Optional[str]
     oriStatus : Optional[str] = 'Complete'
-    oriUrlBase: Optional[List[str]] = get_url_base()
+    oriUrlBase: Optional[List[str]]
     reducStatus : Optional[str] = 'Ready'
     reducUrlBase : Optional[List[str]] = []
     reducprocTime : Optional[str] = ''
@@ -81,6 +81,13 @@ class SoundData():
         self.session.execute(self.table.insert(), self.new_entry)
         self.session.commit()
     
+    def read(self):
+        query = self.session.query(self.table)  # 테이블에 대한 쿼리 생성
+        query = query.order_by(desc(self.table.columns.recKey))
+        rows = query.all()
+        result = [row._asdict() for row in rows]
+        return result
+
     def read_all(self):
         query = self.session.query(self.table)  # 테이블에 대한 쿼리 생성
         query = query.order_by(desc(self.table.columns.recKey))
