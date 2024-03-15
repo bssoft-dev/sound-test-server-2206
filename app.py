@@ -1,6 +1,7 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse
 from starlette.websockets import WebSocket, WebSocketDisconnect
+from database import SoundData
 from users import auth_backend, fastapi_users
 import uvicorn, asyncio
 
@@ -132,6 +133,24 @@ async def main():
     """
     return HTMLResponse(content=content)
 
+@app.delete('/files/delete')
+async def delete_file(recKey: str):
+        target_dir = f'{BASE_DIR}/{recKey[:-2]}/{recKey}'
+        target_parent_dir = f'{BASE_DIR}/{recKey[:-2]}'
+        print(f'File Delete: {target_dir}')
+        if not os.path.exists(target_dir):
+            raise HTTPException(status_code=404, detail="No files found")
+        delete_result = SoundData().delete(recKey)
+        print(f'result:{delete_result}')
+        if delete_result:
+            shutil.rmtree(target_dir)
+            # 상위 디렉토리의 하위 항목 개수 확인
+            if len(os.listdir(target_parent_dir)) == 0:  # 하위 폴더가 하나도 없을 경우
+                shutil.rmtree(target_parent_dir)  # 상위 디렉토리 삭제
+                print(f'Parent Directory Delete: {target_parent_dir}')
+            return {"detail": f"Successfully deleted files both from database and server."}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to delete file from database.")
 
 if __name__ == '__main__':
     uvicorn.run("app:app", host=config['host']['url'], port=int(config['host']['port']), reload=True, 
