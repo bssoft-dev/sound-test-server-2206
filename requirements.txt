@@ -25,7 +25,7 @@ torchsummary==1.5.1
 urllib3==1.26.6
 
 speechbrain==0.5.14
-
+pynvml==11.5.0
 fastapi
 python-multipart
 uvicorn

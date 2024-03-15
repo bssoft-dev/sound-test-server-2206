@@ -105,3 +105,11 @@ class SoundData():
         self.session.commit()
 
 
+    def delete(self, recKey: str) -> bool:
+        # 추출한 recKey를 사용하여 해당 데이터를 삭제합니다.
+        self.session.execute(
+            self.table.delete().where(self.table.c.recKey == recKey)
+        )
+        # 변경 사항을 데이터베이스에 반영하기 위해 commit을 호출합니다.
+        self.session.commit()
+        return 'file delete'
